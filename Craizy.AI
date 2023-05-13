@@ -1,0 +1,121 @@
+import openai
+import requests
+from bs4 import BeautifulSoup
+import sqlite3
+
+# Set your OpenAI API key
+openai.api_key = "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"
+
+# Create a SQLite database and table to store search results
+conn = sqlite3.connect('search_results.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS search_results
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, query TEXT, result TEXT)''')
+
+def ask_ai(question):
+    prompt = f"Question: {question}\nAnswer:"
+
+    # Adjust the prompt to include the question and generate the answer
+    prompt += f"\nModel prompt: {question}\nQuestion: {question}\nAnswer:"
+
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=2046,  # Adjust the value as needed
+        temperature=0.1,  # Adjust the value to control response randomness
+        n=1  # Set n=1 to generate a single response
+    )
+
+    return response.choices[0].text.strip()
+
+def search_web(query):
+    url = f"https://www.google.com/search?q={query}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+    }
+
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    search_results = soup.find_all("div", class_="g")
+    if search_results:
+        first_result = search_results[0]
+        snippet_element = first_result.find("span", class_="aCOpRe")
+        if snippet_element:
+            return snippet_element.text.strip()
+
+        link_element = first_result.find("a")
+        if link_element:
+            return link_element.text.strip()
+
+    return None
+
+
+
+# Menu options
+MENU_QUESTION = "1"
+MENU_COMMON_QUESTIONS = "2"
+MENU_SEARCH_WEB = "3"
+MENU_QUIT = "q"
+
+def highlight_answer(answer):
+    return "\033[1m" + answer + "\033[0m"  # Use bold formatting
+
+# Main program loop
+while True:
+    # Display menu
+    print("=== MENU ===")
+    print("1. Ask AI a question")
+    print("2. See common questions and answers")
+    print("3. Search the web")
+    print("q. Quit")
+
+    choice = input("Enter your choice: ")
+
+    if choice == MENU_QUIT:
+        break
+
+    if choice == MENU_QUESTION:
+        user_question = input("Ask a question: ")
+
+        # Generate AI response
+        ai_response = ask_ai(user_question)
+        print("\nAI's response:")
+        print(highlight_answer(ai_response))  # Highlight the AI's answer
+
+    elif choice == MENU_COMMON_QUESTIONS:
+        common_questions = [
+            "What is the meaning of life?",
+            "How far is the moon?",
+            "Who is the president of the United States?"
+            # Add more common questions as needed
+        ]
+
+        print("\nCommon Questions and Answers:")
+        for question in common_questions:
+            # Generate AI response
+            ai_response = ask_ai(question)
+            print("-" * 30)
+            print("Q: " + question)
+            print("AI: " + highlight_answer(ai_response))  # Highlight the AI's answer
+            print()
+
+    elif choice == MENU_SEARCH_WEB:
+        user_query = input("Enter your search query: ")
+
+        # Search the web
+        web_result = search_web(user_query)
+
+        if web_result:
+            print("\nWeb Search Result:")
+            print(highlight_answer(web_result))  # Highlight the web search result
+        else:
+            print("No search result found.")
+
+    else:
+        print("Invalid choice. Please try again.")
+
+    print("=" * 50)
+
+# Close the connection to the database
+conn.close()
