@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 
 # Set your OpenAI API key
-openai.api_key = "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"
+openai.api_key = "OpenAI API Key"
 
 # Create a SQLite database and table to store search results
 conn = sqlite3.connect('search_results.db')
